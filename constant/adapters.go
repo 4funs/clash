@@ -12,6 +12,7 @@ const (
 	Selector
 	Shadowsocks
 	Socks5
+	Http
 	URLTest
 	Vmess
 )
@@ -30,6 +31,7 @@ type Proxy interface {
 	Name() string
 	Type() AdapterType
 	Generator(metadata *Metadata) (ProxyAdapter, error)
+	MarshalJSON() ([]byte, error)
 }
 
 // AdapterType is enum of adapter type
@@ -49,6 +51,8 @@ func (at AdapterType) String() string {
 		return "Shadowsocks"
 	case Socks5:
 		return "Socks5"
+	case Http:
+		return "Http"
 	case URLTest:
 		return "URLTest"
 	case Vmess:

@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"encoding/json"
 	"io"
 	"net"
 	"time"
@@ -36,6 +37,12 @@ func (r *Reject) Generator(metadata *C.Metadata) (adapter C.ProxyAdapter, err er
 	return &RejectAdapter{conn: &NopConn{}}, nil
 }
 
+func (r *Reject) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]string{
+		"type": r.Type().String(),
+	})
+}
+
 func NewReject() *Reject {
 	return &Reject{}
 }
@@ -43,7 +50,7 @@ func NewReject() *Reject {
 type NopConn struct{}
 
 func (rw *NopConn) Read(b []byte) (int, error) {
-	return len(b), nil
+	return 0, io.EOF
 }
 
 func (rw *NopConn) Write(b []byte) (int, error) {

@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"strconv"
@@ -31,48 +32,57 @@ type Vmess struct {
 }
 
 type VmessOption struct {
-	Name           string `proxy:"name"`
-	Server         string `proxy:"server"`
-	Port           int    `proxy:"port"`
-	UUID           string `proxy:"uuid"`
-	AlterID        int    `proxy:"alterId"`
-	Cipher         string `proxy:"cipher"`
-	TLS            bool   `proxy:"tls,omitempty"`
-	Network        string `proxy:"network,omitempty"`
-	WSPath         string `proxy:"ws-path,omitempty"`
-	SkipCertVerify bool   `proxy:"skip-cert-verify,omitempty"`
+	Name           string            `proxy:"name"`
+	Server         string            `proxy:"server"`
+	Port           int               `proxy:"port"`
+	UUID           string            `proxy:"uuid"`
+	AlterID        int               `proxy:"alterId"`
+	Cipher         string            `proxy:"cipher"`
+	TLS            bool              `proxy:"tls,omitempty"`
+	Network        string            `proxy:"network,omitempty"`
+	WSPath         string            `proxy:"ws-path,omitempty"`
+	WSHeaders      map[string]string `proxy:"ws-headers,omitempty"`
+	SkipCertVerify bool              `proxy:"skip-cert-verify,omitempty"`
 }
 
-func (ss *Vmess) Name() string {
-	return ss.name
+func (v *Vmess) Name() string {
+	return v.name
 }
 
-func (ss *Vmess) Type() C.AdapterType {
+func (v *Vmess) Type() C.AdapterType {
 	return C.Vmess
 }
 
-func (ss *Vmess) Generator(metadata *C.Metadata) (adapter C.ProxyAdapter, err error) {
-	c, err := net.DialTimeout("tcp", ss.server, tcpTimeout)
+func (v *Vmess) Generator(metadata *C.Metadata) (adapter C.ProxyAdapter, err error) {
+	c, err := net.DialTimeout("tcp", v.server, tcpTimeout)
 	if err != nil {
-		return nil, fmt.Errorf("%s connect error", ss.server)
+		return nil, fmt.Errorf("%s connect error", v.server)
 	}
 	tcpKeepAlive(c)
-	c, err = ss.client.New(c, parseVmessAddr(metadata))
+	c, err = v.client.New(c, parseVmessAddr(metadata))
 	return &VmessAdapter{conn: c}, err
+}
+
+func (v *Vmess) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"type": v.Type().String(),
+	})
 }
 
 func NewVmess(option VmessOption) (*Vmess, error) {
 	security := strings.ToLower(option.Cipher)
 	client, err := vmess.NewClient(vmess.Config{
-		UUID:           option.UUID,
-		AlterID:        uint16(option.AlterID),
-		Security:       security,
-		TLS:            option.TLS,
-		Host:           net.JoinHostPort(option.Server, strconv.Itoa(option.Port)),
-		NetWork:        option.Network,
-		WebSocketPath:  option.WSPath,
-		SkipCertVerify: option.SkipCertVerify,
-		SessionCacahe:  getClientSessionCache(),
+		UUID:             option.UUID,
+		AlterID:          uint16(option.AlterID),
+		Security:         security,
+		TLS:              option.TLS,
+		HostName:         option.Server,
+		Port:             strconv.Itoa(option.Port),
+		NetWork:          option.Network,
+		WebSocketPath:    option.WSPath,
+		WebSocketHeaders: option.WSHeaders,
+		SkipCertVerify:   option.SkipCertVerify,
+		SessionCacahe:    getClientSessionCache(),
 	})
 	if err != nil {
 		return nil, err

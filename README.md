@@ -5,7 +5,7 @@
   <br>
 </h1>
 
-<h4 align="center">A rule based proxy in Go.</h4>
+<h4 align="center">A rule-based tunnel in Go.</h4>
 
 <p align="center">
   <a href="https://travis-ci.org/Dreamacro/clash">
@@ -22,15 +22,11 @@
 
 ## Features
 
-- HTTP/HTTPS and SOCKS proxy
+- HTTP/HTTPS and SOCKS protocol
 - Surge like configuration
 - GeoIP rule support
 - Support Vmess/Shadowsocks/Socks5
 - Support for Netfilter TCP redirect
-
-## Discussion
-
-[Telegram Group](https://t.me/clash_discuss)
 
 ## Install
 
@@ -42,7 +38,7 @@ go get -u -v github.com/Dreamacro/clash
 
 Pre-built binaries are available: [release](https://github.com/Dreamacro/clash/releases)
 
-Requires Go >= 1.10.
+Requires Go >= 1.11.
 
 ## Daemon
 
@@ -85,7 +81,7 @@ port: 7890
 # port of SOCKS5
 socks-port: 7891
 
-# redir proxy for Linux and macOS
+# redir port for Linux and macOS
 # redir-port: 7892
 
 allow-lan: false
@@ -94,14 +90,29 @@ allow-lan: false
 mode: Rule
 
 # set log level to stdout (default is info)
-# info / warning / error / debug
+# info / warning / error / debug / silent
 log-level: info
 
 # A RESTful API for clash
 external-controller: 127.0.0.1:9090
 
+# you can put the static web resource (such as clash-dashboard) to a directory, and clash would serve in `${API}/ui`
+# input is a relative path to the configuration directory or an absolute path
+# external-ui: folder
+
 # Secret for RESTful API (Optional)
 # secret: ""
+
+dns:
+  # enable: true # set true to enable dns (default is false)
+  # ipv6: false # default is false
+  # listen: 0.0.0.0:53
+  # enhanced-mode: redir-host
+  # nameserver:
+  #   - 114.114.114.114
+  #   - tls://dns.rubyfish.cn:853 # dns over tls
+  # fallback: # concurrent request with nameserver, fallback used when GEOIP country isn't CN
+  #   - 8.8.8.8
 
 Proxy:
 
@@ -119,17 +130,28 @@ Proxy:
 - { name: "vmess", type: vmess, server: server, port: 443, uuid: uuid, alterId: 32, cipher: auto, tls: true }
 # with tls and skip-cert-verify
 - { name: "vmess", type: vmess, server: server, port: 443, uuid: uuid, alterId: 32, cipher: auto, tls: true, skip-cert-verify: true }
-# with ws
-- { name: "vmess", type: vmess, server: server, port: 443, uuid: uuid, alterId: 32, cipher: auto, network: ws, ws-path: /path }
+# with ws-path and ws-headers
+- { name: "vmess", type: vmess, server: server, port: 443, uuid: uuid, alterId: 32, cipher: auto, network: ws, ws-path: /path, ws-headers: { Host: v2ray.com } }
 # with ws + tls
 - { name: "vmess", type: vmess, server: server, port: 443, uuid: uuid, alterId: 32, cipher: auto, network: ws, ws-path: /path, tls: true }
 
 # socks5
 - { name: "socks", type: socks5, server: server, port: 443 }
+# socks5 with authentication
+- { name: "socks", type: socks5, server: server, port: 443, username: "username", password: "password" }
 # with tls
 - { name: "socks", type: socks5, server: server, port: 443, tls: true }
 # with tls and skip-cert-verify
 - { name: "socks", type: socks5, server: server, port: 443, tls: true, skip-cert-verify: true }
+
+# http
+- { name: "http", type: http, server: server, port: 443 }
+# http with authentication
+- { name: "http", type: http, server: server, port: 443, username: "username", password: "password" }
+# with tls (https)
+- { name: "http", type: http, server: server, port: 443, tls: true }
+# with tls (https) and skip-cert-verify
+- { name: "http", type: http, server: server, port: 443, tls: true, skip-cert-verify: true }
 
 Proxy Group:
 # url-test select which proxy will be used by benchmarking speed to a URL.
@@ -149,8 +171,9 @@ Rule:
 - DOMAIN-SUFFIX,ad.com,REJECT
 - IP-CIDR,127.0.0.0/8,DIRECT
 - GEOIP,CN,DIRECT
-# note: there is two ","
-- FINAL,,Proxy
+# FINAL would remove after prerelease
+# you also can use `FINAL,Proxy` or `FINAL,,Proxy` now
+- MATCH,Proxy
 ```
 
 ## Thanks
