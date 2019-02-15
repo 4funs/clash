@@ -52,9 +52,16 @@ func (r *Resolver) Exchange(m *D.Msg) (msg *D.Msg, err error) {
 	}
 
 	q := m.Question[0]
-	cache := r.cache.Get(q.String())
+	cache, expireTime := r.cache.GetWithExpire(q.String())
 	if cache != nil {
-		return cache.(*D.Msg).Copy(), nil
+		msg = cache.(*D.Msg).Copy()
+		if len(msg.Answer) > 0 {
+			ttl := uint32(expireTime.Sub(time.Now()).Seconds())
+			for _, answer := range msg.Answer {
+				answer.Header().Ttl = ttl
+			}
+		}
+		return
 	}
 	defer func() {
 		if msg != nil {
@@ -148,6 +155,11 @@ func (r *Resolver) resolveIP(m *D.Msg) (msg *D.Msg, err error) {
 }
 
 func (r *Resolver) ResolveIP(host string) (ip net.IP, err error) {
+	ip = net.ParseIP(host)
+	if ip != nil {
+		return ip, nil
+	}
+
 	query := &D.Msg{}
 	dnsType := D.TypeA
 	if r.ipv6 {
@@ -205,6 +217,10 @@ func (r *Resolver) resolve(client []*nameserver, msg *D.Msg) <-chan *result {
 		ch <- &result{Msg: res, Error: err}
 	}()
 	return ch
+}
+
+func (r *Resolver) IsMapping() bool {
+	return r.mapping
 }
 
 type NameServer struct {

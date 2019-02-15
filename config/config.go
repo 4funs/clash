@@ -28,9 +28,9 @@ type General struct {
 	AllowLan           bool         `json:"allow-lan"`
 	Mode               T.Mode       `json:"mode"`
 	LogLevel           log.LogLevel `json:"log-level"`
-	ExternalController string
-	ExternalUI         string
-	Secret             string
+	ExternalController string       `json:"-"`
+	ExternalUI         string       `json:"-"`
+	Secret             string       `json:"-"`
 }
 
 // DNS config
@@ -153,12 +153,14 @@ func parseGeneral(cfg *rawConfig) (*General, error) {
 	mode := cfg.Mode
 	logLevel := cfg.LogLevel
 
-	if !filepath.IsAbs(externalUI) {
-		externalUI = filepath.Join(C.Path.HomeDir(), externalUI)
-	}
+	if externalUI != "" {
+		if !filepath.IsAbs(externalUI) {
+			externalUI = filepath.Join(C.Path.HomeDir(), externalUI)
+		}
 
-	if _, err := os.Stat(externalUI); os.IsNotExist(err) {
-		return nil, fmt.Errorf("external-ui: %s not exist", externalUI)
+		if _, err := os.Stat(externalUI); os.IsNotExist(err) {
+			return nil, fmt.Errorf("external-ui: %s not exist", externalUI)
+		}
 	}
 
 	general := &General{
@@ -249,6 +251,7 @@ func parseProxies(cfg *rawConfig) (map[string]C.Proxy, error) {
 			return nil, fmt.Errorf("ProxyGroup %s: the duplicate name", groupName)
 		}
 		var group C.Proxy
+		var ps []C.Proxy
 		var err error
 		switch groupType {
 		case "url-test":
@@ -258,7 +261,7 @@ func parseProxies(cfg *rawConfig) (map[string]C.Proxy, error) {
 				break
 			}
 
-			ps, err := getProxies(proxies, urlTestOption.Proxies)
+			ps, err = getProxies(proxies, urlTestOption.Proxies)
 			if err != nil {
 				return nil, fmt.Errorf("ProxyGroup %s: %s", groupName, err.Error())
 			}
@@ -270,7 +273,7 @@ func parseProxies(cfg *rawConfig) (map[string]C.Proxy, error) {
 				break
 			}
 
-			ps, err := getProxies(proxies, selectorOption.Proxies)
+			ps, err = getProxies(proxies, selectorOption.Proxies)
 			if err != nil {
 				return nil, fmt.Errorf("ProxyGroup %s: %s", groupName, err.Error())
 			}
@@ -282,7 +285,7 @@ func parseProxies(cfg *rawConfig) (map[string]C.Proxy, error) {
 				break
 			}
 
-			ps, err := getProxies(proxies, fallbackOption.Proxies)
+			ps, err = getProxies(proxies, fallbackOption.Proxies)
 			if err != nil {
 				return nil, fmt.Errorf("ProxyGroup %s: %s", groupName, err.Error())
 			}
@@ -322,7 +325,7 @@ func parseRules(cfg *rawConfig) ([]C.Rule, error) {
 			payload = rule[1]
 			target = rule[2]
 		default:
-			return nil, fmt.Errorf("Rules[%d] error: format invalid", idx)
+			return nil, fmt.Errorf("Rules[%d] [- %s] error: format invalid", idx, line)
 		}
 
 		rule = trimArr(rule)
@@ -336,7 +339,9 @@ func parseRules(cfg *rawConfig) ([]C.Rule, error) {
 		case "GEOIP":
 			rules = append(rules, R.NewGEOIP(payload, target))
 		case "IP-CIDR", "IP-CIDR6":
-			rules = append(rules, R.NewIPCIDR(payload, target))
+			rules = append(rules, R.NewIPCIDR(payload, target, false))
+		case "SOURCE-IP-CIDR":
+			rules = append(rules, R.NewIPCIDR(payload, target, true))
 		case "MATCH":
 			fallthrough
 		case "FINAL":

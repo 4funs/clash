@@ -42,24 +42,32 @@ func Start(addr string, secret string) {
 
 	cors := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
-		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
 		AllowedHeaders: []string{"Content-Type", "Authorization"},
 		MaxAge:         300,
 	})
 
-	r.Use(cors.Handler, authentication)
+	root := chi.NewRouter().With(jsonContentType)
+	root.Get("/traffic", traffic)
+	root.Get("/logs", getLogs)
 
-	r.With(jsonContentType).Get("/traffic", traffic)
-	r.With(jsonContentType).Get("/logs", getLogs)
-	r.Mount("/configs", configRouter())
-	r.Mount("/proxies", proxyRouter())
-	r.Mount("/rules", ruleRouter())
+	r.Get("/", hello)
+	r.Group(func(r chi.Router) {
+		r.Use(cors.Handler, authentication)
+
+		r.Mount("/", root)
+		r.Mount("/configs", configRouter())
+		r.Mount("/proxies", proxyRouter())
+		r.Mount("/rules", ruleRouter())
+	})
 
 	if uiPath != "" {
-		fs := http.StripPrefix("/ui", http.FileServer(http.Dir(uiPath)))
-		r.Get("/ui", http.RedirectHandler("/ui/", 301).ServeHTTP)
-		r.Get("/ui/*", func(w http.ResponseWriter, r *http.Request) {
-			fs.ServeHTTP(w, r)
+		r.Group(func(r chi.Router) {
+			fs := http.StripPrefix("/ui", http.FileServer(http.Dir(uiPath)))
+			r.Get("/ui", http.RedirectHandler("/ui/", 301).ServeHTTP)
+			r.Get("/ui/*", func(w http.ResponseWriter, r *http.Request) {
+				fs.ServeHTTP(w, r)
+			})
 		})
 	}
 
@@ -98,6 +106,10 @@ func authentication(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	}
 	return http.HandlerFunc(fn)
+}
+
+func hello(w http.ResponseWriter, r *http.Request) {
+	render.JSON(w, r, render.M{"hello": "clash"})
 }
 
 func traffic(w http.ResponseWriter, r *http.Request) {
